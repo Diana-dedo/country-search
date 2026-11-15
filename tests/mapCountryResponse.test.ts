@@ -18,13 +18,12 @@ describe('mapCountryResponse', () => {
         const result = mapCountryResponse(raw);
         expect(result).toEqual({
             name: 'Spain',
-            flags: 'https://flag.svg',
+            flag: 'https://flag.svg',
             capital: 'Madrid',
             region: 'Europe',
             population: 47000000,
             languages: ['Spanish'],
             currencies: ['Euro'],
-            symbol: '€',
             borders: ['FRA', 'PRT'],
             area: 505992,
         });
