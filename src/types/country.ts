@@ -1,6 +1,7 @@
 export interface RawCountryResponse {
     name: { common: string; official?: string } | string;
     flags?: { svg?: string; png?: string };
+    flag?: string;
     capital?: string[] | string;
     region?: string;
     population?: number;
