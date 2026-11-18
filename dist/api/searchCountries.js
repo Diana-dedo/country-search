@@ -1,6 +1,6 @@
 import { HttpError } from './HttpError.js';
 import { mapCountryResponse } from '../utils/mapCountryResponse.js';
-const BASE_URL = 'https://countries.dev';
+const BASE_URL = 'https://countries.dev/name';
 export async function searchCountries(query, signal) {
     const response = await fetch(`${BASE_URL}/${encodeURIComponent(query)}`, signal ? { signal } : undefined);
     if (response.status === 404) {

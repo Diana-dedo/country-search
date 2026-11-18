@@ -2,7 +2,7 @@ import { HttpError } from './HttpError.js';
 import { mapCountryResponse } from '../utils/mapCountryResponse.js';
 import type { Country, RawCountryResponse } from '../types/country.js';
 
-const BASE_URL = 'https://countries.dev';
+const BASE_URL = 'https://countries.dev/name';
 
 export async function searchCountries(
     query: string,
