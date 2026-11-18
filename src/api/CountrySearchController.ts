@@ -12,12 +12,18 @@ export interface SearchCallbacks {
     onLoading: (isLoading: boolean) => void;
 }
 
+interface InFlightEntry {
+    promise: Promise<Country[]>;
+    abortController: AbortController;
+    subscribers: number;
+}
+
 const REQUEST_TIMEOUT_MS = 8000;
 
 export class CountrySearchController {
     private currentAbortController: AbortController | null = null;
     private cache = new Map<string, Country[]>();
-    private inFlight = new Map<string, Promise<Country[]>>();
+    private inFlight = new Map<string, InFlightEntry>();
 
     constructor(
         private readonly fetcher: CountryFetcher,
@@ -96,39 +102,60 @@ export class CountrySearchController {
         }
     }
 
-    private fetchWithDeduplication(
+    public fetchWithDeduplication(
         cacheKey: string,
         query: string,
         callerSignal: AbortSignal,
     ): Promise<Country[]> {
-        let sharedPromise = this.inFlight.get(cacheKey);
+        let entry = this.inFlight.get(cacheKey);
 
-        if (!sharedPromise) {
+        if (!entry) {
+            const sharedAbortController = new AbortController();
             const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
             const combinedSignal =
                 typeof AbortSignal.any === 'function'
-                    ? AbortSignal.any([callerSignal, timeoutSignal])
-                    : callerSignal;
+                    ? AbortSignal.any([
+                          sharedAbortController.signal,
+                          timeoutSignal,
+                      ])
+                    : sharedAbortController.signal;
 
-            sharedPromise = this.fetcher(query, combinedSignal).finally(() => {
+            const promise = this.fetcher(query, combinedSignal).finally(() => {
                 this.inFlight.delete(cacheKey);
             });
-            this.inFlight.set(cacheKey, sharedPromise);
+
+            entry = {
+                promise,
+                abortController: sharedAbortController,
+                subscribers: 0,
+            };
+            this.inFlight.set(cacheKey, entry);
         }
+
+        entry.subscribers += 1;
+        const currentEntry = entry;
 
         return new Promise<Country[]>((resolve, reject) => {
             if (callerSignal.aborted) {
+                currentEntry.subscribers -= 1;
+                if (currentEntry.subscribers <= 0) {
+                    currentEntry.abortController.abort();
+                }
                 reject(new DOMException('Aborted', 'AbortError'));
                 return;
             }
 
             const onAbort = () => {
+                currentEntry.subscribers -= 1;
+                if (currentEntry.subscribers <= 0) {
+                    currentEntry.abortController.abort();
+                }
                 reject(new DOMException('Aborted', 'AbortError'));
             };
 
             callerSignal.addEventListener('abort', onAbort, { once: true });
 
-            sharedPromise.then(
+            currentEntry.promise.then(
                 (res) => {
                     callerSignal.removeEventListener('abort', onAbort);
                     resolve(res);
