@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1" 
-  },
+    "lint": "eslint src tests",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "test": "vitest run --passWithNoTests" , 
+    "build": "tsc"},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Diana-dedo/country-search.git"
