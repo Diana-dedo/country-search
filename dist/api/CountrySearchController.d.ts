@@ -17,6 +17,10 @@ export declare class CountrySearchController {
     constructor(fetcher: CountryFetcher, callbacks: SearchCallbacks);
     abortCurrent(): void;
     search(rawQuery: string): Promise<void>;
-    private fetchWithDeduplication;
+    fetchWithDeduplication(
+        cacheKey: string,
+        query: string,
+        callerSignal: AbortSignal,
+    ): Promise<Country[]>;
 }
 //# sourceMappingURL=CountrySearchController.d.ts.map

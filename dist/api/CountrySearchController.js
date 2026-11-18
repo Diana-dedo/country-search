@@ -68,27 +68,46 @@ export class CountrySearchController {
         }
     }
     fetchWithDeduplication(cacheKey, query, callerSignal) {
-        let sharedPromise = this.inFlight.get(cacheKey);
-        if (!sharedPromise) {
+        let entry = this.inFlight.get(cacheKey);
+        if (!entry) {
+            const sharedAbortController = new AbortController();
             const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
             const combinedSignal = typeof AbortSignal.any === 'function'
-                ? AbortSignal.any([callerSignal, timeoutSignal])
-                : callerSignal;
-            sharedPromise = this.fetcher(query, combinedSignal).finally(() => {
+                ? AbortSignal.any([
+                    sharedAbortController.signal,
+                    timeoutSignal,
+                ])
+                : sharedAbortController.signal;
+            const promise = this.fetcher(query, combinedSignal).finally(() => {
                 this.inFlight.delete(cacheKey);
             });
-            this.inFlight.set(cacheKey, sharedPromise);
+            entry = {
+                promise,
+                abortController: sharedAbortController,
+                subscribers: 0,
+            };
+            this.inFlight.set(cacheKey, entry);
         }
+        entry.subscribers += 1;
+        const currentEntry = entry;
         return new Promise((resolve, reject) => {
             if (callerSignal.aborted) {
+                currentEntry.subscribers -= 1;
+                if (currentEntry.subscribers <= 0) {
+                    currentEntry.abortController.abort();
+                }
                 reject(new DOMException('Aborted', 'AbortError'));
                 return;
             }
             const onAbort = () => {
+                currentEntry.subscribers -= 1;
+                if (currentEntry.subscribers <= 0) {
+                    currentEntry.abortController.abort();
+                }
                 reject(new DOMException('Aborted', 'AbortError'));
             };
             callerSignal.addEventListener('abort', onAbort, { once: true });
-            sharedPromise.then((res) => {
+            currentEntry.promise.then((res) => {
                 callerSignal.removeEventListener('abort', onAbort);
                 resolve(res);
             }, (err) => {
